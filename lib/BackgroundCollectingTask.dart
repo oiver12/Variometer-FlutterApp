@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:math' hide log;
 import 'dart:typed_data';
 import 'package:crclib/catalog.dart';
 import 'package:flutter/material.dart';
@@ -19,11 +20,11 @@ class Crc8Arduino extends ParametricCrc {
 }
 
 class DataSample {
-  double pressure;
+  double height;
   DateTime timestamp;
 
   DataSample({
-    this.pressure,
+    this.height,
     this.timestamp,
   });
 }
@@ -74,6 +75,12 @@ class BackgroundCollectingTask extends Model {
   List<int> _buffer = new List<int>();
   int startByte = 254;
 
+  double startHeight;
+  double reduzierterLuftdruck;
+  double startTemp;
+  double tempSeaLevel; //in K!!
+  double lastVelocity = 0;
+  double lastHeight = 0;
   List<DataSample> samples = List<DataSample>();
   bool inProgress = false;
 
@@ -96,7 +103,6 @@ class BackgroundCollectingTask extends Model {
       while(result && _buffer.length > 0)
       {
         result = getResultFormBuffer(_buffer);
-        log("Done once");
       }
     }).onDone(() {
       inProgress = false;
@@ -113,17 +119,17 @@ class BackgroundCollectingTask extends Model {
     {
       if(_buffer[i] == startByte && i != _buffer.length-1 && _buffer[i+1] != startByte)
       {
+        //index ist falsch Packet fallen lassen -->Packet verpasst aber wird schon nächstes kommen...
+        if(buffer[i+1] >= _arduinoPackets.length)
+        {
+          log("Index zu Gross von Packet! Packet verloren");
+          _buffer.removeAt(i);
+          return true;
+        }
         //ganzes Packet ist angekommen
         if(_buffer.length - i >= _arduinoPackets[_buffer[i+1]].lengthPacket)
         {
           startIndex = i;
-          //index ist falsch Packet fallen lassen -->Packet verpasst aber wird schon nächstes kommen...
-          if(buffer[i+1] >= _arduinoPackets.length)
-          {
-            log("Index zu Gross von Packet! Packet verloren");
-            _buffer.removeAt(i);
-            return true;
-          }
           endIndex = startIndex + _arduinoPackets[_buffer[i+1]].lengthPacket - 1;
           startedPackage = true;
           break;
@@ -143,19 +149,29 @@ class BackgroundCollectingTask extends Model {
     //log(Crc8Arduino().convert(_packet).toString() + "  " + crcValue.toString());
     if(Crc8Arduino().convert(_packet) == crcValue)
     {
-      if(_packet[0] == arduinoPacketTypes.updateState.index)
+      if(_packet[0] == arduinoPacketTypes.startPacket.index)
       {
-        log("StartPacket");
         var result = _packet.sublist(1).buffer.asFloat32List();
         double startPressure = result[0].toDouble();
-        double startTemp = result[1].toDouble();
+        startTemp = result[1].toDouble();
+        double L =  0.0065;
+        tempSeaLevel = startTemp + 0.0065*startHeight + 273.15;
+        //reduzierterLuftdruck = startPressure * pow(1-((L * startHeight)/(startTemp+L*startHeight+273.15)), -5.257);
+        reduzierterLuftdruck = startPressure / pow(1 + (-L/tempSeaLevel) * startHeight, 5.255876);
+        log(startHeight.toString() + "  " + startPressure.toString() + "  " +startTemp.toString());
+        log("redLuftdruck: " + reduzierterLuftdruck.toString() + ", startDruck: " + startPressure.toString());
+        lastHeight = getHeight(startPressure);
+        log(lastHeight.toString());
+        notifyListeners();
       }
       else if(_packet[0] == arduinoPacketTypes.updateState.index)
       {
-        log("UpdateState");
         var result = _packet.sublist(1).buffer.asFloat32List();
-        double velocity = result[0].toDouble();
-        double height = result[1].toDouble();
+        lastVelocity = result[0].toDouble();
+        double pressure = result[1].toDouble();
+        lastHeight = getHeight(pressure);
+        log("Geschwindigkeit: " + lastVelocity.toStringAsFixed(2) + ", Pressure: " + pressure.toStringAsFixed(2) + ", lastHeight: " + lastHeight.toStringAsFixed(2));
+        notifyListeners();
       }
     }
     else
@@ -163,6 +179,11 @@ class BackgroundCollectingTask extends Model {
       log("Crc was wrong");
     }
     return true;
+  }
+
+  double getHeight(double pressure)
+  {
+     return (tempSeaLevel/-0.0065) * (pow(pressure/ reduzierterLuftdruck, 0.190263) -1);
   }
   
   Uint8List getBytesFromDouble(double value)
@@ -185,6 +206,7 @@ class BackgroundCollectingTask extends Model {
 
   Future<void> startVario(double height) async
   {
+    startHeight = height;
     Uint8List sendBuffer = Uint8List(_flutterPackets[0].lengthPacket);
     int indexBuffer = 0;
 

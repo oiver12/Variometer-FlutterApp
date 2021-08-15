@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:scoped_model/scoped_model.dart';
+import 'package:variomete_app/Speedometer.dart';
 
 import './BackgroundCollectingTask.dart';
-import './BackgroundCollectedPage.dart';
 import './SelectBondedDevicePage.dart';
 
 void main() {
@@ -131,14 +131,16 @@ class _MyHomePageState extends State<MyHomePage> {
     percentageScreen.width = MediaQuery.of(context).size.width;
     percentageScreen.height = MediaQuery.of(context).size.height;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
       body: Container(
+        color: Colors.black,
         child: ListView(
           children: <Widget>[
+            SizedBox(
+              height: percentageScreen.height*0.05,
+            ),
             ListTile(
               title: RaisedButton(
+                color: Colors.white,
                 child: ((_collectingTask != null)
                     ? const Text('Disconnect and stop background collecting')
                     : const Text('Connect to device')),
@@ -169,22 +171,30 @@ class _MyHomePageState extends State<MyHomePage> {
                 },
               ),
             ),
-            SizedBox(
-              height: percentageScreen.height * 0.1,
-            ),
             Padding(
               padding: EdgeInsets.fromLTRB(percentageScreen.width*0.2, 0, percentageScreen.width*0.2, 0),
               child: TextField(
                 keyboardType: TextInputType.number,
                 controller: heightTextFieldController,
+                style: TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                  hintText: 'Start height'
-                ),
+                    enabledBorder: new OutlineInputBorder(
+                      borderRadius: new BorderRadius.circular(25.0),
+                      borderSide:  BorderSide(color: Colors.white ),
+                    ),
+                    focusedBorder: new OutlineInputBorder(
+                      borderRadius: new BorderRadius.circular(25.0),
+                      borderSide:  BorderSide(color: Colors.lightBlueAccent ),
+                    ),
+                    hintText: 'Start height',
+                    hintStyle: TextStyle(color: Colors.white54),
+                  ),
               ),
             ),
             ListTile(
               title: RaisedButton(
+                color: Colors.white,
+                disabledColor: Colors.white54,
                 child: ((_collectingTask != null && _collectingTask.inProgress)
                 ? const Text("Stop Variometer")
                 : const Text("Start Variometer")
@@ -202,6 +212,13 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
                 :null),
               ),
+            ),
+            ((_collectingTask != null && _collectingTask.inProgress)
+                ? ScopedModel<BackgroundCollectingTask>(
+                  model: _collectingTask,
+                  child: Speedometer(),
+                )
+                : Container()
             ),
             /*ListTile(
               title: RaisedButton(
