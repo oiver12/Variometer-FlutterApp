@@ -29,10 +29,10 @@ class _SpeedometerState extends State<Speedometer> {
               axisLineStyle: AxisLineStyle(
                   thicknessUnit: GaugeSizeUnit.factor, thickness: 0.03),
               majorTickStyle: MajorTickStyle(
-                  length: 15, thickness: 4, color: Colors.white),
+                  length: 15, thickness: 4,),
               minorTickStyle: MinorTickStyle(
-                  length: 10, thickness: 3, color: Colors.white),
-              axisLabelStyle: GaugeTextStyle(color: Colors.white,
+                  length: 10, thickness: 3, ),
+              axisLabelStyle: GaugeTextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14),
               ranges: <GaugeRange>[
@@ -53,15 +53,15 @@ class _SpeedometerState extends State<Speedometer> {
                     Row(
                       children: <Widget>[
                         SizedBox(
-                          width: percentageScreen.width*0.1,
+                          width: percentageScreen.width*0.2,
                         ),
                         Column(
                           children: <Widget>[
                             Text(task.lastHeight.toStringAsFixed(2), style: TextStyle(
-                                fontSize: 25, fontWeight: FontWeight.bold, color: Colors.white)),
+                                fontSize: 25, fontWeight: FontWeight.bold)),
                             SizedBox(height: percentageScreen.height*0.01),
                             Text('AMSL', style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white))
+                                fontSize: 14, fontWeight: FontWeight.bold))
                           ],
                         ),
                         SizedBox(
@@ -70,10 +70,10 @@ class _SpeedometerState extends State<Speedometer> {
                         Column(
                             children: <Widget>[
                               Text(task.lastVelocity.toStringAsFixed(2), style: TextStyle(
-                                  fontSize: 25, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  fontSize: 25, fontWeight: FontWeight.bold)),
                               SizedBox(height: percentageScreen.height*0.01),
                               Text('m/s', style: TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white))
+                                  fontSize: 14, fontWeight: FontWeight.bold))
                             ]
                         )
                       ],

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:scoped_model/scoped_model.dart';
 import 'package:crclib/crclib.dart';
+import 'package:variomete_app/BeforeStartPage.dart';
 
 class Crc8Arduino extends ParametricCrc {
   Crc8Arduino()
@@ -31,8 +32,9 @@ class DataSample {
 
 enum arduinoPacketTypes
 {
-  startPacket,
-  updateState,
+  WelcomResponsePacket,
+  StartVarioPacket,
+  updateState ,
 }
 
 class arduinoPackets
@@ -47,6 +49,7 @@ class arduinoPackets
 
 enum flutterPacketTypes
 {
+  welcomePacket,
   start,
   stop,
 }
@@ -70,7 +73,6 @@ class BackgroundCollectingTask extends Model {
         context,
         rebuildOnChange: rebuildOnChange,
       );
-
   final BluetoothConnection _connection;
   List<int> _buffer = new List<int>();
   int startByte = 254;
@@ -86,12 +88,14 @@ class BackgroundCollectingTask extends Model {
 
   var _arduinoPackets = [
     //+3 für startByte + indexByte + crcByte = 3
-    arduinoPackets(type: arduinoPacketTypes.startPacket, lengthPacket: (2 * 4 + 3)),
+    arduinoPackets(type: arduinoPacketTypes.WelcomResponsePacket, lengthPacket: (3+4+3)),
+    arduinoPackets(type: arduinoPacketTypes.StartVarioPacket, lengthPacket:  (2*4 + 3)),
     arduinoPackets(type: arduinoPacketTypes.updateState, lengthPacket: (2 * 4 + 3)),
   ];
 
   var _flutterPackets = [
-    flutterPackets(type:flutterPacketTypes.start, lengthPacket: 4+3),
+    flutterPackets(type:flutterPacketTypes.welcomePacket, lengthPacket: 3),
+    flutterPackets(type:flutterPacketTypes.start, lengthPacket: 4 + 1 + 3),
     flutterPackets(type:flutterPacketTypes.stop, lengthPacket: 3)
   ];
 
@@ -117,7 +121,7 @@ class BackgroundCollectingTask extends Model {
     bool startedPackage = false;
     for(int i = 0; i < _buffer.length; i++)
     {
-      if(_buffer[i] == startByte && i != _buffer.length-1 && _buffer[i+1] != startByte)
+      if(_buffer[i] == startByte && i != _buffer.length-1/* && _buffer[i+1] != startByte*/)
       {
         //index ist falsch Packet fallen lassen -->Packet verpasst aber wird schon nächstes kommen...
         if(buffer[i+1] >= _arduinoPackets.length)
@@ -139,6 +143,7 @@ class BackgroundCollectingTask extends Model {
     if(!startedPackage)
       return false;
     var _packet = Uint8List.fromList(_buffer.sublist(startIndex+1, endIndex));
+    //log("Ganzes Packet!!!" + _packet[0].toString());
     int crcValue = _buffer[endIndex];
     _buffer.removeRange(startIndex, endIndex + 1);
     /*for(int i = 0; i < _packet.length; i++)
@@ -149,7 +154,7 @@ class BackgroundCollectingTask extends Model {
     //log(Crc8Arduino().convert(_packet).toString() + "  " + crcValue.toString());
     if(Crc8Arduino().convert(_packet) == crcValue)
     {
-      if(_packet[0] == arduinoPacketTypes.startPacket.index)
+      if(_packet[0] == arduinoPacketTypes.StartVarioPacket.index)
       {
         var result = _packet.sublist(1).buffer.asFloat32List();
         double startPressure = result[0].toDouble();
@@ -170,9 +175,35 @@ class BackgroundCollectingTask extends Model {
         lastVelocity = result[0].toDouble();
         double pressure = result[1].toDouble();
         lastHeight = getHeight(pressure);
-        log("Geschwindigkeit: " + lastVelocity.toStringAsFixed(2) + ", Pressure: " + pressure.toStringAsFixed(2) + ", lastHeight: " + lastHeight.toStringAsFixed(2));
+        //log("Geschwindigkeit: " + lastVelocity.toStringAsFixed(2) + ", Pressure: " + pressure.toStringAsFixed(2) + ", lastHeight: " + lastHeight.toStringAsFixed(2));
         notifyListeners();
       }
+      else if(_packet[0] == arduinoPacketTypes.WelcomResponsePacket.index)
+        {
+          //log("DPS310:" + _packet[1].toString());
+          //log("MPU9250:" + _packet[2].toString());
+          //log("SDCard:" + _packet[3].toString());
+          var result = _packet.sublist(4).buffer.asFloat32List();
+          double SdCardSize = result[0]; //in Kb
+          String sdCardSizeString = SdCardSize.toStringAsFixed(2) + "KB";
+          if(SdCardSize / 1024 > 1) {
+            SdCardSize /= 1024;
+            sdCardSizeString = SdCardSize.toStringAsFixed(2) + "MB";
+          }
+          if(SdCardSize / 1024 > 1) {
+            SdCardSize /= 1024;
+            sdCardSizeString = SdCardSize.toStringAsFixed(2) + "GB";
+          }
+          log("SDCard Size: " + SdCardSize.toString());
+          BeforeStartPage.state.setState(() {
+            BeforeStartPage.state.recievedResponse = true;
+            BeforeStartPage.state.dps310work = _packet[1] == 1;
+            BeforeStartPage.state.mpu9250work = _packet[2] == 1;
+            BeforeStartPage.state.sdCardwork = _packet[3] == 1;
+            if(_packet[3] == 1)
+              BeforeStartPage.state.sdCardVolume = sdCardSizeString;
+          });
+        }
     }
     else
     {
@@ -201,15 +232,30 @@ class BackgroundCollectingTask extends Model {
   }
 
   void dispose() {
+    log("Dispose");
     _connection.dispose();
   }
 
-  Future<void> startVario(double height) async
+  Future<void> sendWelcomeMessage() async
   {
-    startHeight = height;
+    log("SendWelcome");
     Uint8List sendBuffer = Uint8List(_flutterPackets[0].lengthPacket);
     int indexBuffer = 0;
+    sendBuffer[indexBuffer] = startByte;
+    indexBuffer++;
+    sendBuffer[indexBuffer] = flutterPacketTypes.welcomePacket.index;
+    indexBuffer++;
+    sendBuffer[indexBuffer] = int.parse(Crc8Arduino().convert(sendBuffer.sublist(1, indexBuffer)).toString());
+    indexBuffer++;
+    _connection.output.add(sendBuffer);
+    await _connection.output.allSent;
+  }
 
+  Future<void> startVario(double height, bool useXCTrack) async
+  {
+    startHeight = height;
+    Uint8List sendBuffer = Uint8List(_flutterPackets[1].lengthPacket);
+    int indexBuffer = 0;
     sendBuffer[indexBuffer] = startByte;
     indexBuffer++;
     sendBuffer[indexBuffer] = flutterPacketTypes.start.index;
@@ -220,6 +266,8 @@ class BackgroundCollectingTask extends Model {
       sendBuffer[indexBuffer] = bytesHeight[i];
       indexBuffer++;
     }
+    sendBuffer[indexBuffer] = useXCTrack ? 1: 0;
+    indexBuffer++;
     sendBuffer[indexBuffer] = int.parse(Crc8Arduino().convert(sendBuffer.sublist(1, indexBuffer)).toString());
     indexBuffer++;
     _connection.output.add(sendBuffer);
@@ -232,15 +280,16 @@ class BackgroundCollectingTask extends Model {
   {
     inProgress = false;
     notifyListeners();
-    Uint8List sendBuffer = Uint8List(_flutterPackets[1].lengthPacket);
+    Uint8List sendBuffer = Uint8List(_flutterPackets[2].lengthPacket);
     int indexBuffer = 0;
-
     sendBuffer[indexBuffer] = startByte;
     indexBuffer++;
     sendBuffer[indexBuffer] = flutterPacketTypes.stop.index;
     indexBuffer++;
     sendBuffer[indexBuffer] = int.parse(Crc8Arduino().convert(sendBuffer.sublist(1, indexBuffer)).toString());
     indexBuffer++;
+    for(int i = 0; i< sendBuffer.length; i++)
+      log(sendBuffer[i].toString());
     _connection.output.add(sendBuffer);
     await _connection.output.allSent;
   }
@@ -252,21 +301,6 @@ class BackgroundCollectingTask extends Model {
   Future<void> cancel() async {
     inProgress = false;
     notifyListeners();
-    _connection.output.add(ascii.encode('ccc'));
-    await _connection.finish();
-  }
-
-  Future<void> reasume() async {
-    inProgress = false;
-    notifyListeners();
-    _connection.output.add(ascii.encode('ccc'));
-    await _connection.finish();
-  }
-
-  Future<void> pause() async {
-    inProgress = false;
-    notifyListeners();
-    _connection.output.add(ascii.encode('ccc'));
     await _connection.finish();
   }
 
