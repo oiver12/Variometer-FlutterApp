@@ -7,6 +7,7 @@ import 'main.dart';
 import './BackgroundCollectingTask.dart';
 import './SelectBondedDevicePage.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'chartSlider.dart';
 
 class BeforeStartPage extends StatefulWidget {
   static _BeforeStartPageState state;
@@ -360,6 +361,7 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                   ),
                 ),
               ),
+              SliderLine.withSampleData(),
             ],
           )
       ),
