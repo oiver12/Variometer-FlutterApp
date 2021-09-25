@@ -36,6 +36,8 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
   bool bluetoothConnected = false;
   bool useXCTrack = false;
   bool startedXCTrack = false;
+  bool soundVariometer = true;
+  double _currentSliderValueDPSStand = 0.123;
 
   @override
   void initState() {
@@ -135,8 +137,8 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                     }
                   },
                   child: bluetoothConnected
-                      ? Text("Disconnect from Variometer")
-                      : Text("Connect to Variometer"),
+                      ? Text("Entbinden vom Variometer")
+                      : Text("Verbinden zu Variometer"),
                 ),
               ),
               Padding(
@@ -156,7 +158,7 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                       borderRadius: new BorderRadius.circular(25.0),
                       borderSide: BorderSide(),
                     ),
-                    hintText: 'Start height',
+                    hintText: 'Starthöhe',
                     hintStyle: TextStyle(),
                   ),
                 ),
@@ -192,10 +194,10 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.3, percentageScreen.height * 0.03, 0, 0),
+                padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.25, percentageScreen.height * 0.02, 0, 0),
                 child: Row(
                   children: <Widget>[
-                    Text("Use XC Track"),
+                    Text("Benutze XC Track"),
                     Checkbox(
                         value: useXCTrack,
                         onChanged:(bool){
@@ -208,9 +210,25 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                 ),
               ),
               Padding(
+                padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.25, 0, 0, 0),
+                child: Row(
+                  children: <Widget>[
+                    Text("Sound Variometer"),
+                    Checkbox(
+                        value: soundVariometer,
+                        onChanged:(bool){
+                          setState(() {
+                            soundVariometer = bool;
+                          });
+                        }
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
                 padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.03, percentageScreen.height * 0.03, 0, 0),
                 child: Text(
-                  "Components:",
+                  "Komponenten:",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -239,7 +257,7 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                         children: <Widget>[
                           Text(
                             bluetoothConnected ? BluetoothObjects.selectedDevice
-                                .name : "Not conected",
+                                .name : "Nicht verbunden",
                             style: TextStyle(fontSize: 20),),
                           Text(
                             bluetoothConnected ? BluetoothObjects.selectedDevice
@@ -361,7 +379,45 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                   ),
                 ),
               ),
+              SizedBox(height: percentageScreen.height * 0.1),
+              Center(
+                child: Text(
+                  "Ton Simulator",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              SizedBox(height: percentageScreen.height * 0.02),
               SliderLine.withSampleData(),
+              Padding(
+                padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.06,
+                    percentageScreen.height * 0.05,
+                    percentageScreen.width * 0.06,
+                    percentageScreen.height * 0.05),
+                child: ElevatedButton(
+                  child: Text("Sende Soundeinstellungen zum Variometer"),
+                  onPressed: (){
+                    setState(() {
+
+                    });
+                  }
+                ),
+              ),
+              //damit nicht das Ganze gerendert werden muss bei Slider änderung
+              SliderKalman(),
+              Padding(
+                padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.06,
+                    percentageScreen.height * 0.05,
+                    percentageScreen.width * 0.06,
+                    percentageScreen.height * 0.05),
+                child: ElevatedButton(
+                  child: Text("Sende Kalmaneinstellungen zum Variometer"),
+                    onPressed: (){
+                      setState(() {
+
+                      });
+                  }
+                ),
+              ),
             ],
           )
       ),
@@ -399,5 +455,103 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
     }
   }
 }
+
+class SliderKalman extends StatefulWidget {
+  const SliderKalman({Key key}) : super(key: key);
+  static double currentDPSStandValue = 0.123;
+  static double currentMPUStandValue = 0.123;
+  static double currentProcessValue = 0.123;
+  @override
+  _SliderKalmanState createState() => _SliderKalmanState();
+}
+
+class _SliderKalmanState extends State<SliderKalman> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Center(
+          child: Text(
+            "Kalman Filter Einstellungen",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(height: percentageScreen.height*0.04,),
+        Text("Höhe Standartabweichung:",
+        style: TextStyle(fontSize: 15.0, fontWeight: FontWeight.w900),),
+        SizedBox(height: percentageScreen.height*0.02,),
+        Row(
+          children: [
+            SizedBox(width: percentageScreen.width*0.4,),
+            ImageIcon(AssetImage('images/plusMinus.png'), size: 15,),
+            Text(
+              SliderKalman.currentDPSStandValue.toStringAsFixed(3) + " m",
+              style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        Slider(
+          value: SliderKalman.currentDPSStandValue,
+          min: 0,
+          max: 0.8,
+          onChanged: (double value) {
+            setState(() {
+              SliderKalman.currentDPSStandValue = value;
+            });
+          },
+        ),
+        SizedBox(height: percentageScreen.height*0.04,),
+        Text("Vertikale Beschleunigung Standartabweichung:",
+          style: TextStyle(fontSize: 15.0, fontWeight: FontWeight.w900),),
+        SizedBox(height: percentageScreen.height*0.02,),
+        Row(
+          children: [
+            SizedBox(width: percentageScreen.width*0.35,),
+            ImageIcon(AssetImage('images/plusMinus.png'), size: 15,),
+            Text(
+              SliderKalman.currentMPUStandValue.toStringAsFixed(3) + " m/(s*s)",
+              style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        Slider(
+          value: SliderKalman.currentMPUStandValue,
+          min: 0,
+          max: 0.5,
+          onChanged: (double value) {
+            setState(() {
+              SliderKalman.currentMPUStandValue = value;
+            });
+          },
+        ),
+        SizedBox(height: percentageScreen.height*0.04,),
+        Text("Prozessrauschen",
+          style: TextStyle(fontSize: 15.0, fontWeight: FontWeight.w900),),
+        SizedBox(height: percentageScreen.height*0.02,),
+        Row(
+          children: [
+            SizedBox(width: percentageScreen.width*0.35,),
+            ImageIcon(AssetImage('images/plusMinus.png'), size: 15,),
+            Text(
+              SliderKalman.currentProcessValue.toStringAsFixed(3) + " m/(s*s)",
+              style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        Slider(
+          value: SliderKalman.currentProcessValue,
+          min: 0,
+          max: 0.5,
+          onChanged: (double value) {
+            setState(() {
+              SliderKalman.currentProcessValue = value;
+            });
+          },
+        ),
+      ],
+    );
+  }
+}
+
 
 

@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:math';
-// EXCLUDE_FROM_GALLERY_DOCS_END
+
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:sound_generator/sound_generator.dart';
 import 'package:sound_generator/waveTypes.dart';
+import 'package:variomete_app/main.dart';
 
 class SliderLine extends StatefulWidget {
   static List<charts.Series> seriesList = _createSampleData();
@@ -27,7 +28,7 @@ class SliderLine extends StatefulWidget {
   // We need a Stateful widget to build the selection details with the current
   // selection as the state.
   @override
-  State<StatefulWidget> createState() => new _SliderCallbackState();
+  State<StatefulWidget> createState() => new SliderCallbackState();
 
   /// Create one series with sample hard coded data.
   static List<charts.Series<ToneFrequency, double>> _createSampleData() {
@@ -44,17 +45,23 @@ class SliderLine extends StatefulWidget {
 
     return [
       new charts.Series<ToneFrequency, double>(
-        id: 'Sales',
-        domainFn: (ToneFrequency sales, _) => sales.velocity,
-        measureFn: (ToneFrequency sales, _) => sales.frequeny,
+        id: 'Frequenz',
+        domainFn: (ToneFrequency point, _) => point.velocity,
+        measureFn: (ToneFrequency point, _) => point.frequeny,
         data: pointsOfSlide,
-      )
+      ),
+      new charts.Series<ToneFrequency, double>(
+        id: 'Tonelänge',
+        domainFn: (ToneFrequency point, _) => point.velocity,
+        measureFn: (ToneFrequency point, _) => point.lengthTone,
+        data: pointsOfSlide
+      )..setAttribute(charts.measureAxisIdKey, 'secondaryMeasureAxisId')
     ];
   }
 }
 
-class _SliderCallbackState extends State<SliderLine> {
-  waveTypes waveType = waveTypes.SQUAREWAVE;
+class SliderCallbackState extends State<SliderLine> {
+  waveTypes waveType = waveTypes.SINUSOIDAL;
   int sampleRate = 9600;
   bool BeepOn = false;
   bool isPlaying = true;
@@ -70,21 +77,19 @@ class _SliderCallbackState extends State<SliderLine> {
       charts.SliderListenerDragState dragState) {
     // Request a build.
     void rebuild(_) {
-      if(dragState == charts.SliderListenerDragState.end) {
+      if (dragState == charts.SliderListenerDragState.end) {
         print("Rebuild");
         for (int i = 0; i < SliderLine.pointsOfSlide.length; i++) {
-          if (domain >= SliderLine.pointsOfSlide[i].velocity && domain <= SliderLine.pointsOfSlide[i + 1].velocity)
-          {
-            if (i + 1 == SliderLine.pointsOfSlide.length)
-            {
+          if (domain >= SliderLine.pointsOfSlide[i].velocity &&
+              domain <= SliderLine.pointsOfSlide[i + 1].velocity) {
+            if (i + 1 == SliderLine.pointsOfSlide.length) {
               setState(() {
                 frequency = SliderLine.pointsOfSlide[i].frequeny;
                 velocity = domain;
               });
               return;
             }
-            if (i == 0 || i == 1)
-            {
+            if (i == 0 || i == 1) {
               print("Low");
               if (timer != null)
                 timer.cancel();
@@ -96,12 +101,11 @@ class _SliderCallbackState extends State<SliderLine> {
                 frequency = SliderLine.pointsOfSlide[1].frequeny;
                 velocity = domain;
               });
-              if(BeepOn)
+              if (BeepOn)
                 SoundGenerator.play();
               return;
             }
-            else if (i == 2 || i == 3)
-            {
+            else if (i == 2 || i == 3) {
               print("Equal");
               if (timer != null)
                 timer.cancel();
@@ -115,22 +119,29 @@ class _SliderCallbackState extends State<SliderLine> {
               SoundGenerator.stop();
               return;
             }
-            double factor = (domain - SliderLine.pointsOfSlide[i].velocity) / (SliderLine.pointsOfSlide[i + 1].velocity - SliderLine.pointsOfSlide[i].velocity);
+            double factor = (domain - SliderLine.pointsOfSlide[i].velocity) /
+                (SliderLine.pointsOfSlide[i + 1].velocity -
+                    SliderLine.pointsOfSlide[i].velocity);
             setState(() {
               velocity = domain;
-              frequency = factor * (SliderLine.pointsOfSlide[i + 1].frequeny - SliderLine.pointsOfSlide[i].frequeny) + SliderLine.pointsOfSlide[i].frequeny;
-              lengthTone = (factor * (SliderLine.pointsOfSlide[i + 1].lengthTone - SliderLine.pointsOfSlide[i].lengthTone) + SliderLine.pointsOfSlide[i].lengthTone).round();
+              frequency = factor * (SliderLine.pointsOfSlide[i + 1].frequeny -
+                  SliderLine.pointsOfSlide[i].frequeny) +
+                  SliderLine.pointsOfSlide[i].frequeny;
+              lengthTone = (factor *
+                  (SliderLine.pointsOfSlide[i + 1].lengthTone -
+                      SliderLine.pointsOfSlide[i].lengthTone) +
+                  SliderLine.pointsOfSlide[i].lengthTone).round();
               print(frequency.toString());
             });
             SoundGenerator.setFrequency(frequency);
             isLow = false;
             isEqual = false;
-            if (BeepOn)
-            {
+            if (BeepOn) {
               if (timer != null)
                 timer.cancel();
 
-              timer = Timer.periodic(Duration(milliseconds: lengthTone), (Timer t) => Beep());
+              timer = Timer.periodic(
+                  Duration(milliseconds: lengthTone), (Timer t) => Beep());
             }
             return;
           }
@@ -140,9 +151,9 @@ class _SliderCallbackState extends State<SliderLine> {
 
     SchedulerBinding.instance.addPostFrameCallback(rebuild);
   }
+
   @override
-  void initState()
-  {
+  void initState() {
     super.initState();
     SoundGenerator.init(sampleRate);
 
@@ -152,60 +163,72 @@ class _SliderCallbackState extends State<SliderLine> {
     SoundGenerator.setVolume(1);
   }
 
-  void Beep()
+  void Beep() {
+    if (isPlaying) {
+      SoundGenerator.stop();
+      isPlaying = false;
+    }
+    else {
+      SoundGenerator.play();
+      isPlaying = true;
+    }
+  }
+
+  List<charts.Series<ToneFrequency, double>> returnFromPoint()
   {
-    if(isPlaying)
-      {
-        SoundGenerator.stop();
-        isPlaying = false;
-      }
-    else
-      {
-        SoundGenerator.play();
-        isPlaying = true;
-      }
+    return [new charts.Series<ToneFrequency, double>(
+      id: 'Frequenz',
+      domainFn: (ToneFrequency point, _) => point.velocity,
+      measureFn: (ToneFrequency point, _) => point.frequeny,
+      data: SliderLine.pointsOfSlide,
+    ),
+      new charts.Series<ToneFrequency, double>(
+          id: 'Tonelänge',
+          domainFn: (ToneFrequency point, _) => point.velocity,
+          measureFn: (ToneFrequency point, _) => point.lengthTone,
+          data: SliderLine.pointsOfSlide
+      )..setAttribute(charts.measureAxisIdKey, 'secondaryMeasureAxisId')];
+  }
+
+  void setChartFromPoints()
+  {
+    SliderLine.seriesList = returnFromPoint();
   }
 
   @override
   Widget build(BuildContext context) {
-    print(frequency.toString());
     // The children consist of a Chart and Text widgets below to hold the info.
     final children = <Widget>[
       new SizedBox(
-          height: 150.0,
+          height: 250.0,
+          width: percentageScreen.width,
           child: new charts.LineChart(
             SliderLine.seriesList,
             animate: widget.animate,
-            // Configures a [Slider] behavior.
-            //
-            // Available options include:
-            //
-            // [eventTrigger] configures the type of mouse gesture that controls
-            // the slider.
-            //
-            // [handleRenderer] draws a handle for the slider. Defaults to a
-            // rectangle.
-            //
-            // [initialDomainValue] sets the initial position of the slider in
-            // domain units. The default is the center of the chart.
-            //
-            // [onChangeCallback] will be called when the position of the slider
-            // changes during a drag event.
-            //
-            // [roleId] optional custom role ID for the slider. This can be used to
-            // allow multiple [Slider] behaviors on the same chart. Normally, there can
-            // only be one slider (per event trigger type) on a chart. This setting
-            // allows for configuring multiple independent sliders.
-            //
-            // [snapToDatum] configures the slider to snap snap onto the nearest
-            // datum (by domain distance) when dragged. By default, the slider
-            // can be positioned anywhere along the domain axis.
-            //
-            // [style] takes in a [SliderStyle] configuration object, and
-            // configures the color and sizing of the slider line and handle.
+            primaryMeasureAxis: new charts.NumericAxisSpec(
+                tickProviderSpec:
+                new charts.BasicNumericTickProviderSpec(desiredTickCount: 4)),
+            secondaryMeasureAxis: new charts.NumericAxisSpec(
+                tickProviderSpec:
+                new charts.BasicNumericTickProviderSpec(desiredTickCount: 4)),
+            defaultRenderer: new charts.LineRendererConfig(includePoints: true),
             behaviors: [
+              new charts.SeriesLegend(),
               new charts.Slider(
-                  initialDomainValue: velocity, onChangeCallback: _onSliderChange),
+                  initialDomainValue: velocity,
+                  onChangeCallback: _onSliderChange),
+              new charts.ChartTitle('Geschwindigkeit [m/s]',
+                  behaviorPosition: charts.BehaviorPosition.bottom,
+                  titleOutsideJustification:
+                  charts.OutsideJustification.middleDrawArea),
+              new charts.ChartTitle('Frequenz [Hz]',
+                  behaviorPosition: charts.BehaviorPosition.start,
+                  titleOutsideJustification:
+                  charts.OutsideJustification.middleDrawArea),
+              new charts.ChartTitle('Tonlänge [ms]',
+                  behaviorPosition: charts.BehaviorPosition.end,
+                  titleOutsideJustification:
+                  charts.OutsideJustification.middleDrawArea),
             ],
           )),
     ];
@@ -214,33 +237,122 @@ class _SliderCallbackState extends State<SliderLine> {
             icon: Icon(
                 BeepOn ? Icons.stop : Icons.play_arrow),
             onPressed: () {
-              if(BeepOn)
-                {
-                  if(timer != null)
-                    timer.cancel();
+              if (BeepOn) {
+                if (timer != null)
+                  timer.cancel();
 
+                SoundGenerator.stop();
+              }
+              else {
+                if (isEqual)
                   SoundGenerator.stop();
-                }
-            else
-              {
-                if(isEqual)
-                  SoundGenerator.stop();
-                else if(isLow)
+                else if (isLow)
                   SoundGenerator.play();
                 else
-                  timer = Timer.periodic(Duration(milliseconds: lengthTone), (Timer t) => Beep());
+                  timer = Timer.periodic(
+                      Duration(milliseconds: lengthTone), (Timer t) => Beep());
               }
               setState(() {
                 BeepOn = !BeepOn;
               });
             }));
-    children.add(Text("Velocity: " + velocity.toStringAsFixed(2)));
-    children.add(Text("Frequency: " + frequency.toStringAsFixed(2)));
-    children.add(Text("Toneduration: " + lengthTone.toString()));
+    children.add(Text("Geschwindigkeit: " + velocity.toStringAsFixed(2)));
+    children.add(Text("Frequenz: " + frequency.toStringAsFixed(2)));
+    children.add(Text("Tonlänge: " + lengthTone.toString()));
+    children.add(DataTable(
+      columns: const <DataColumn>[
+        DataColumn(
+          label: Text(
+            'Geschwindigkeit',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+        ),
+        DataColumn(
+          label: Text(
+            'Frequenz',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+        ),
+        DataColumn(
+          label: Text(
+            'Tonlänge',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+        ),
+      ],
+      columnSpacing: percentageScreen.width * 0.1,
+      rows: <DataRow>[
+        pointDataRow(SliderLine.pointsOfSlide[1]),
+        pointDataRow(SliderLine.pointsOfSlide[4]),
+        pointDataRow(SliderLine.pointsOfSlide[5]),
+        pointDataRow(SliderLine.pointsOfSlide[6]),
+        pointDataRow(SliderLine.pointsOfSlide[7]),
+      ],
+    ));
     return new Column(children: children);
   }
-}
 
+
+  DataRow pointDataRow(ToneFrequency point) {
+    return DataRow(
+      cells: <DataCell>[
+        DataCell(
+          Container(
+            width: percentageScreen.width * 0.19,
+            child: TextField(
+              decoration: InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: point.velocity.toStringAsFixed(2),
+                labelStyle: TextStyle(fontSize: 14),
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (value) {
+                setState(() {
+                  point.velocity = double.parse(value);
+                  setChartFromPoints();
+                });
+              },
+            ),
+          ),
+        ),
+        DataCell(Container(
+          width: percentageScreen.width * 0.19,
+          child: TextField(
+            decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: point.frequeny.toStringAsFixed(1),
+              labelStyle: TextStyle(fontSize: 14),
+            ),
+            keyboardType: TextInputType.number,
+            onSubmitted: (value) {
+              setState(() {
+                point.frequeny = double.parse(value);
+                setChartFromPoints();
+              });
+            },
+          ),
+        ),),
+        DataCell(Container(
+          width: percentageScreen.width * 0.19,
+          child: TextField(
+            decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: point.lengthTone.toStringAsFixed(1),
+              labelStyle: TextStyle(fontSize: 14),
+            ),
+            keyboardType: TextInputType.number,
+            onSubmitted: (value) {
+              setState(() {
+                point.lengthTone = double.parse(value);
+                setChartFromPoints();
+              });
+            },
+          ),
+        ),),
+      ],
+    );
+  }
+}
 /// Sample linear data type.
 class ToneFrequency {
   double velocity;
