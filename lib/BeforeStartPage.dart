@@ -97,49 +97,76 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
       body: Container(
           child: ListView(
             children: <Widget>[
-              Padding(
-                padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.1,
-                    percentageScreen.height * 0.05,
-                    percentageScreen.width * 0.1,
-                    percentageScreen.height * 0.05),
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (bluetoothConnected) {
-                      await BluetoothObjects.collectingTask.cancel();
-                      BluetoothObjects.collectingTask = null;
-                      setState(() {
-                        mpu9250work = false;
-                        dps310work = false;
-                        bluetoothConnected = false;
-                      });
-                    }
-                    else {
-                      BluetoothObjects.selectedDevice =
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) {
-                            return SelectBondedDevicePage(
-                                checkAvailability: false);
-                          },
-                        ),
-                      );
-                      if (BluetoothObjects.selectedDevice != null) {
-                        await _startBackgroundTask(
-                            context, BluetoothObjects.selectedDevice);
-                        if (BluetoothObjects.collectingTask != null) {
-                          await BluetoothObjects.collectingTask
-                              .sendWelcomeMessage();
-                          setState(() {
-                            bluetoothConnected = true;
-                          });
-                        }
-                      }
-                    }
-                  },
-                  child: bluetoothConnected
-                      ? Text("Entbinden vom Variometer")
-                      : Text("Verbinden zu Variometer"),
-                ),
+              Row(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.05,
+                        percentageScreen.height * 0.05,
+                        percentageScreen.width * 0,
+                        percentageScreen.height * 0.05),
+                    child: Container(
+                      width: percentageScreen.width*0.8,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (bluetoothConnected) {
+                            await BluetoothObjects.collectingTask.cancel();
+                            BluetoothObjects.collectingTask = null;
+                            setState(() {
+                              mpu9250work = false;
+                              dps310work = false;
+                              bluetoothConnected = false;
+                            });
+                          }
+                          else {
+                            BluetoothObjects.selectedDevice =
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) {
+                                  return SelectBondedDevicePage(
+                                      checkAvailability: false);
+                                },
+                              ),
+                            );
+                            if (BluetoothObjects.selectedDevice != null) {
+                              await _startBackgroundTask(
+                                  context, BluetoothObjects.selectedDevice);
+                              if (BluetoothObjects.collectingTask != null) {
+                                await BluetoothObjects.collectingTask
+                                    .sendWelcomeMessage();
+                                setState(() {
+                                  bluetoothConnected = true;
+                                });
+                              }
+                            }
+                          }
+                        },
+                        child: bluetoothConnected
+                            ? Text("Entbinden vom Variometer")
+                            : Text("Verbinden zu Variometer"),
+                      ),
+                    ),
+                  ),
+                  IconButton(icon: Icon(Icons.info_outline), onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Bluetooth Adapter verbinden'),
+                          content: Text("Der Bluetooth Adapter des Variometers muss zuerst in den Einstellungen mit dem Gerät gekoppelt werden. Dafür muss in den Bluetooth Einstellungen unter Verfügbare Geräte der Name HC-06 gesucht werden."
+                              " Wenn der Name auftaucht, darauf klicken und den Code 1234 eingeben. Danach sollte der Adapter verbunden sein. Wenn dies einmal gemacht wurde, kann der Adapter einfach in der App unter Verbinden zu Variometer verbunden werden"),
+                          actions: <Widget>[
+                            new FlatButton(
+                              child: new Text("Schliessen"),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },)
+                ],
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(percentageScreen.width * 0.2, 0,
@@ -172,7 +199,7 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                   child: !startedXCTrack ? const Text("Start Variometer") : const Text("Stop Variometer"),
                   onPressed: bluetoothConnected ? () {
                     if(!startedXCTrack) {
-                      BluetoothObjects.collectingTask.startVario(double.parse(heightTextFieldController.text), useXCTrack);
+                      BluetoothObjects.collectingTask.startVario(double.parse(heightTextFieldController.text), useXCTrack, soundVariometer);
                       if (!useXCTrack)
                         Navigator.pushNamed(context, '/VariometerPage');
                       else {
@@ -397,7 +424,7 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                   child: Text("Sende Soundeinstellungen zum Variometer"),
                   onPressed: (){
                     setState(() {
-
+                      BluetoothObjects.collectingTask.sendSoundSettings();
                     });
                   }
                 ),
@@ -413,7 +440,7 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
                   child: Text("Sende Kalmaneinstellungen zum Variometer"),
                     onPressed: (){
                       setState(() {
-
+                            BluetoothObjects.collectingTask.sendKalmanSetting(SliderKalman.currentDPSStandValue, SliderKalman.currentMPUStandValue, SliderKalman.currentProcessValue);
                       });
                   }
                 ),
@@ -458,9 +485,9 @@ class _BeforeStartPageState extends State<BeforeStartPage> {
 
 class SliderKalman extends StatefulWidget {
   const SliderKalman({Key key}) : super(key: key);
-  static double currentDPSStandValue = 0.123;
-  static double currentMPUStandValue = 0.123;
-  static double currentProcessValue = 0.123;
+  static double currentDPSStandValue = 0.1298;
+  static double currentMPUStandValue = 0.0069;
+  static double currentProcessValue = 0.1183;
   @override
   _SliderKalmanState createState() => _SliderKalmanState();
 }
@@ -541,7 +568,7 @@ class _SliderKalmanState extends State<SliderKalman> {
         Slider(
           value: SliderKalman.currentProcessValue,
           min: 0,
-          max: 0.5,
+          max: 0.3,
           onChanged: (double value) {
             setState(() {
               SliderKalman.currentProcessValue = value;

@@ -33,8 +33,8 @@ class SliderLine extends StatefulWidget {
   /// Create one series with sample hard coded data.
   static List<charts.Series<ToneFrequency, double>> _createSampleData() {
     pointsOfSlide = [
-      new ToneFrequency(120, 0, -4),
-      new ToneFrequency(120, 0, -2.5),
+      new ToneFrequency(300, 0, -4),
+      new ToneFrequency(300, 0, -2.5),
       new ToneFrequency(0, 0, -2.49),
       new ToneFrequency(0, 0, 0.149),
       new ToneFrequency(700, 750, 0.15),
@@ -51,7 +51,7 @@ class SliderLine extends StatefulWidget {
         data: pointsOfSlide,
       ),
       new charts.Series<ToneFrequency, double>(
-        id: 'Tonelänge',
+        id: 'Tonlänge',
         domainFn: (ToneFrequency point, _) => point.velocity,
         measureFn: (ToneFrequency point, _) => point.lengthTone,
         data: pointsOfSlide
@@ -61,8 +61,8 @@ class SliderLine extends StatefulWidget {
 }
 
 class SliderCallbackState extends State<SliderLine> {
-  waveTypes waveType = waveTypes.SINUSOIDAL;
-  int sampleRate = 9600;
+  waveTypes waveType = waveTypes.SQUAREWAVE;
+  int sampleRate = 96000;
   bool BeepOn = false;
   bool isPlaying = true;
   int lengthTone = 750;
@@ -78,7 +78,6 @@ class SliderCallbackState extends State<SliderLine> {
     // Request a build.
     void rebuild(_) {
       if (dragState == charts.SliderListenerDragState.end) {
-        print("Rebuild");
         for (int i = 0; i < SliderLine.pointsOfSlide.length; i++) {
           if (domain >= SliderLine.pointsOfSlide[i].velocity &&
               domain <= SliderLine.pointsOfSlide[i + 1].velocity) {
@@ -148,7 +147,6 @@ class SliderCallbackState extends State<SliderLine> {
         }
       }
     }
-
     SchedulerBinding.instance.addPostFrameCallback(rebuild);
   }
 
@@ -156,7 +154,6 @@ class SliderCallbackState extends State<SliderLine> {
   void initState() {
     super.initState();
     SoundGenerator.init(sampleRate);
-
     SoundGenerator.setAutoUpdateOneCycleSample(false);
     SoundGenerator.setWaveType(waveType);
     SoundGenerator.setFrequency(frequency);
@@ -197,6 +194,7 @@ class SliderCallbackState extends State<SliderLine> {
 
   @override
   Widget build(BuildContext context) {
+    SoundGenerator.setBalance(0);
     // The children consist of a Chart and Text widgets below to hold the info.
     final children = <Widget>[
       new SizedBox(
@@ -234,8 +232,8 @@ class SliderCallbackState extends State<SliderLine> {
     ];
     children.add(
         IconButton(
-            icon: Icon(
-                BeepOn ? Icons.stop : Icons.play_arrow),
+            icon: ImageIcon(
+                BeepOn ?  AssetImage('images/speakerOn.png'): AssetImage('images/speakerOff.png')),
             onPressed: () {
               if (BeepOn) {
                 if (timer != null)
@@ -282,18 +280,19 @@ class SliderCallbackState extends State<SliderLine> {
       ],
       columnSpacing: percentageScreen.width * 0.1,
       rows: <DataRow>[
-        pointDataRow(SliderLine.pointsOfSlide[1]),
-        pointDataRow(SliderLine.pointsOfSlide[4]),
-        pointDataRow(SliderLine.pointsOfSlide[5]),
-        pointDataRow(SliderLine.pointsOfSlide[6]),
-        pointDataRow(SliderLine.pointsOfSlide[7]),
+        pointDataRow(1),
+        pointDataRow(4),
+        pointDataRow(5),
+        pointDataRow(6),
+        pointDataRow(7),
       ],
     ));
     return new Column(children: children);
   }
 
 
-  DataRow pointDataRow(ToneFrequency point) {
+  DataRow pointDataRow(int toneIndex) {
+    ToneFrequency point = SliderLine.pointsOfSlide[toneIndex];
     return DataRow(
       cells: <DataCell>[
         DataCell(
@@ -309,6 +308,14 @@ class SliderCallbackState extends State<SliderLine> {
               onSubmitted: (value) {
                 setState(() {
                   point.velocity = double.parse(value);
+                  if(toneIndex == 1)
+                    {
+                      SliderLine.pointsOfSlide[2].velocity = point.velocity+0.001;
+                    }
+                  if(toneIndex == 4)
+                  {
+                    SliderLine.pointsOfSlide[3].velocity = point.velocity-0.001;
+                  }
                   setChartFromPoints();
                 });
               },
@@ -327,6 +334,10 @@ class SliderCallbackState extends State<SliderLine> {
             onSubmitted: (value) {
               setState(() {
                 point.frequeny = double.parse(value);
+                if(toneIndex == 1)
+                  {
+                    SliderLine.pointsOfSlide[0].frequeny = point.frequeny;
+                  }
                 setChartFromPoints();
               });
             },
@@ -335,6 +346,7 @@ class SliderCallbackState extends State<SliderLine> {
         DataCell(Container(
           width: percentageScreen.width * 0.19,
           child: TextField(
+            enabled: !(toneIndex==1),
             decoration: InputDecoration(
               border: OutlineInputBorder(),
               labelText: point.lengthTone.toStringAsFixed(1),
@@ -344,6 +356,10 @@ class SliderCallbackState extends State<SliderLine> {
             onSubmitted: (value) {
               setState(() {
                 point.lengthTone = double.parse(value);
+                if(toneIndex == 1)
+                {
+                  SliderLine.pointsOfSlide[0].lengthTone = point.lengthTone;
+                }
                 setChartFromPoints();
               });
             },

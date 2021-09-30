@@ -170,7 +170,7 @@ class _MyHomePageState extends State<MyHomePage> {
             content: Text("${ex.toString()}"),
             actions: <Widget>[
               new FlatButton(
-                child: new Text("Close"),
+                child: new Text("Schliessen"),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },

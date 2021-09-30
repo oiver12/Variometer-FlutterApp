@@ -8,6 +8,7 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:scoped_model/scoped_model.dart';
 import 'package:crclib/crclib.dart';
 import 'package:variomete_app/BeforeStartPage.dart';
+import 'package:variomete_app/chartSlider.dart';
 
 class Crc8Arduino extends ParametricCrc {
   Crc8Arduino()
@@ -52,6 +53,8 @@ enum flutterPacketTypes
   welcomePacket,
   start,
   stop,
+  soundSetting,
+  kalmanSettings
 }
 
 class flutterPackets
@@ -95,8 +98,10 @@ class BackgroundCollectingTask extends Model {
 
   var _flutterPackets = [
     flutterPackets(type:flutterPacketTypes.welcomePacket, lengthPacket: 3),
-    flutterPackets(type:flutterPacketTypes.start, lengthPacket: 4 + 1 + 3),
-    flutterPackets(type:flutterPacketTypes.stop, lengthPacket: 3)
+    flutterPackets(type:flutterPacketTypes.start, lengthPacket: 4 + 1  + 1 + 3),
+    flutterPackets(type:flutterPacketTypes.stop, lengthPacket: 3),
+    flutterPackets(type:flutterPacketTypes.soundSetting, lengthPacket: 15*4 + 3),
+    flutterPackets(type:flutterPacketTypes.kalmanSettings, lengthPacket: 4 * 3 + 3)
   ];
 
   BackgroundCollectingTask._fromConnection(this._connection) {
@@ -142,16 +147,11 @@ class BackgroundCollectingTask extends Model {
     }
     if(!startedPackage)
       return false;
+    log("packet");
+   // log(buffer.length.toString());
     var _packet = Uint8List.fromList(_buffer.sublist(startIndex+1, endIndex));
-    //log("Ganzes Packet!!!" + _packet[0].toString());
     int crcValue = _buffer[endIndex];
     _buffer.removeRange(startIndex, endIndex + 1);
-    /*for(int i = 0; i < _packet.length; i++)
-        {
-          log("Packet at: " + i.toString() + " is " + _packet[i].toString());
-        }*/
-    //log("StartIndex: " + startIndex.toString() + "crc: " + Crc8Arduino().convert(_packet).toString());
-    //log(Crc8Arduino().convert(_packet).toString() + "  " + crcValue.toString());
     if(Crc8Arduino().convert(_packet) == crcValue)
     {
       if(_packet[0] == arduinoPacketTypes.StartVarioPacket.index)
@@ -161,9 +161,8 @@ class BackgroundCollectingTask extends Model {
         startTemp = result[1].toDouble();
         double L =  0.0065;
         tempSeaLevel = startTemp + 0.0065*startHeight + 273.15;
-        //reduzierterLuftdruck = startPressure * pow(1-((L * startHeight)/(startTemp+L*startHeight+273.15)), -5.257);
         reduzierterLuftdruck = startPressure / pow(1 + (-L/tempSeaLevel) * startHeight, 5.255876);
-        log(startHeight.toString() + "  " + startPressure.toString() + "  " +startTemp.toString());
+        //log(startHeight.toString() + "  " + startPressure.toString() + "  " +startTemp.toString());
         log("redLuftdruck: " + reduzierterLuftdruck.toString() + ", startDruck: " + startPressure.toString());
         lastHeight = getHeight(startPressure);
         log(lastHeight.toString());
@@ -175,7 +174,6 @@ class BackgroundCollectingTask extends Model {
         lastVelocity = result[0].toDouble();
         double pressure = result[1].toDouble();
         lastHeight = getHeight(pressure);
-        //log("Geschwindigkeit: " + lastVelocity.toStringAsFixed(2) + ", Pressure: " + pressure.toStringAsFixed(2) + ", lastHeight: " + lastHeight.toStringAsFixed(2));
         notifyListeners();
       }
       else if(_packet[0] == arduinoPacketTypes.WelcomResponsePacket.index)
@@ -251,7 +249,7 @@ class BackgroundCollectingTask extends Model {
     await _connection.output.allSent;
   }
 
-  Future<void> startVario(double height, bool useXCTrack) async
+  Future<void> startVario(double height, bool useXCTrack, bool soundON) async
   {
     startHeight = height;
     Uint8List sendBuffer = Uint8List(_flutterPackets[1].lengthPacket);
@@ -267,6 +265,8 @@ class BackgroundCollectingTask extends Model {
       indexBuffer++;
     }
     sendBuffer[indexBuffer] = useXCTrack ? 1: 0;
+    indexBuffer++;
+    sendBuffer[indexBuffer] = soundON ? 1: 0;
     indexBuffer++;
     sendBuffer[indexBuffer] = int.parse(Crc8Arduino().convert(sendBuffer.sublist(1, indexBuffer)).toString());
     indexBuffer++;
@@ -290,6 +290,99 @@ class BackgroundCollectingTask extends Model {
     indexBuffer++;
     for(int i = 0; i< sendBuffer.length; i++)
       log(sendBuffer[i].toString());
+    _connection.output.add(sendBuffer);
+    await _connection.output.allSent;
+  }
+
+  Future<void> sendSoundSettings() async
+  {
+    Uint8List sendBuffer = Uint8List(_flutterPackets[3].lengthPacket);
+    int indexBuffer = 0;
+    sendBuffer[indexBuffer] = startByte;
+    indexBuffer++;
+    sendBuffer[indexBuffer] = flutterPacketTypes.soundSetting.index;
+    indexBuffer++;
+    var bytesPoint = getBytesFromSoundPoint(SliderLine.pointsOfSlide[1]);
+    for(int i = 0; i< bytesPoint.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesPoint[i];
+      indexBuffer++;
+    }
+    bytesPoint = getBytesFromSoundPoint(SliderLine.pointsOfSlide[4]);
+    for(int i = 0; i< bytesPoint.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesPoint[i];
+      indexBuffer++;
+    }
+    bytesPoint = getBytesFromSoundPoint(SliderLine.pointsOfSlide[5]);
+    for(int i = 0; i< bytesPoint.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesPoint[i];
+      indexBuffer++;
+    }
+    bytesPoint = getBytesFromSoundPoint(SliderLine.pointsOfSlide[6]);
+    for(int i = 0; i< bytesPoint.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesPoint[i];
+      indexBuffer++;
+    }
+    bytesPoint = getBytesFromSoundPoint(SliderLine.pointsOfSlide[7]);
+    for(int i = 0; i< bytesPoint.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesPoint[i];
+      indexBuffer++;
+    }
+    sendBuffer[indexBuffer] = int.parse(Crc8Arduino().convert(sendBuffer.sublist(1, indexBuffer)).toString());
+    indexBuffer++;
+    _connection.output.add(sendBuffer);
+    await _connection.output.allSent;
+  }
+
+  Uint8List getBytesFromSoundPoint(ToneFrequency point)
+  {
+    var valueFloat = new Float32List(3);
+    valueFloat[0] = point.velocity;
+    valueFloat[1] = point.frequeny;
+    valueFloat[2] = point.lengthTone;
+    return valueFloat.buffer.asUint8List();
+  }
+
+  Future<void> sendKalmanSetting(double standHeight, double standAcc, double processNoise) async
+  {
+    if(processNoise > 0.12)
+      {
+        processNoise = ((processNoise - 0.12) / (0.5-0.12)) * (1.3-0.9) + 0.9;
+      }
+    else
+      {
+        processNoise = ((processNoise) / (0.12)) * (0.9);
+      }
+    Uint8List sendBuffer = Uint8List(_flutterPackets[4].lengthPacket);
+    int indexBuffer = 0;
+    sendBuffer[indexBuffer] = startByte;
+    indexBuffer++;
+    sendBuffer[indexBuffer] = flutterPacketTypes.kalmanSettings.index;
+    indexBuffer++;
+    var bytesDouble = getBytesFromDouble(standHeight);
+    for(int i = 0; i< bytesDouble.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesDouble[i];
+      indexBuffer++;
+    }
+    bytesDouble = getBytesFromDouble(standAcc);
+    for(int i = 0; i< bytesDouble.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesDouble[i];
+      indexBuffer++;
+    }
+    bytesDouble = getBytesFromDouble(processNoise);
+    for(int i = 0; i< bytesDouble.length; i++)
+    {
+      sendBuffer[indexBuffer] = bytesDouble[i];
+      indexBuffer++;
+    }
+    sendBuffer[indexBuffer] = int.parse(Crc8Arduino().convert(sendBuffer.sublist(1, indexBuffer)).toString());
+    indexBuffer++;
     _connection.output.add(sendBuffer);
     await _connection.output.allSent;
   }
