@@ -119,6 +119,7 @@ class BackgroundCollectingTask extends Model {
     });
   }
 
+  //auswerten eines Pakets
   bool getResultFormBuffer(List<int> buffer)
   {
     int startIndex = 0;
@@ -152,6 +153,7 @@ class BackgroundCollectingTask extends Model {
     var _packet = Uint8List.fromList(_buffer.sublist(startIndex+1, endIndex));
     int crcValue = _buffer[endIndex];
     _buffer.removeRange(startIndex, endIndex + 1);
+    //wenn CRC richtig, dann Paket auswerten je nach Index
     if(Crc8Arduino().convert(_packet) == crcValue)
     {
       if(_packet[0] == arduinoPacketTypes.StartVarioPacket.index)
@@ -349,14 +351,6 @@ class BackgroundCollectingTask extends Model {
 
   Future<void> sendKalmanSetting(double standHeight, double standAcc, double processNoise) async
   {
-    if(processNoise > 0.12)
-      {
-        processNoise = ((processNoise - 0.12) / (0.5-0.12)) * (1.3-0.9) + 0.9;
-      }
-    else
-      {
-        processNoise = ((processNoise) / (0.12)) * (0.9);
-      }
     Uint8List sendBuffer = Uint8List(_flutterPackets[4].lengthPacket);
     int indexBuffer = 0;
     sendBuffer[indexBuffer] = startByte;
