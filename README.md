@@ -1,4 +1,4 @@
-Die von mir programmierten Dateien können im Ordner „lib“ gefunden werden. Fol-gende Dateien sind enthalten:
+Die von mir programmierten Dateien können im Ordner „lib“ gefunden werden. Folgende Dateien sind enthalten:
 -	main.dart: Wird beim Start des Programms aufgerufen
 -	BeforeStartPage.dart: In dieser Datei ist die Startseite des Apps programmiert (ersichtlich in Abbildung 44 und 45).
 -	SelectBondedDevicePage.dart: In dieser Datei ist der Bildschirm program-miert, auf welchem der Bluetooth Adapter ausgewählt werden kann (ersichtlich in Abbildung 47). Diese Datei ist auf dem Beispiel der Bibliothek flut-ter_bluetooth_serial und ist die einzige Datei, mit der Datie BluetoothDevice-ListEntry.dart, welche in diesem Ordner nicht vollständig selbst programmiert ist.
